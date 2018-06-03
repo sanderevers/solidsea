@@ -1,7 +1,7 @@
 from website.app import create_app
 import os
 
-app = create_app('idp.cfg') # instance relative
+app = create_app('solidsea.cfg') # instance relative
 
 @app.cli.command()
 def initdb():
