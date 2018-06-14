@@ -1,9 +1,9 @@
 from authlib.specs.rfc6749.models import ClientMixin
 
 class StaticClient(ClientMixin):
-    def __init__(self, client_id, secret, redirect_uri):
+    def __init__(self, client_id, client_secret, redirect_uri):
         self.client_id = client_id # is read in OpenIDMixin.generate_id_token
-        self.secret = secret
+        self.client_secret = client_secret
         self.redirect_uri = redirect_uri
 
     def check_redirect_uri(self, redirect_uri):
@@ -13,7 +13,7 @@ class StaticClient(ClientMixin):
         return True
 
     def check_client_secret(self, client_secret):
-        return client_secret==self.secret
+        return client_secret==self.client_secret
 
     def check_token_endpoint_auth_method(self, method):
         return method=='client_secret_basic'
@@ -25,7 +25,7 @@ class StaticClient(ClientMixin):
         return grant_type in ('authorization_code','implicit')
 
     def check_requested_scopes(self, scopes):
-        return set(scopes) == set(['openid'])
+        return set(scopes) == {'openid'}
 
 static_clients = {}
 

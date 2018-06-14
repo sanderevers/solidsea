@@ -1,54 +1,51 @@
 from flask import Blueprint, request, session
 from flask import render_template, redirect, jsonify, json, url_for
-from werkzeug.security import gen_salt
-from authlib.flask.oauth2 import current_token
-from authlib.specs.rfc6749 import OAuth2Error
 from .oauth2_server import auth_server
-from .oauth2_client import oauth2_clients
+from .federation import federation
 from .user import User
 
 bp = Blueprint(__name__, 'home')
 
-@bp.route('/authorize', methods=['GET', 'POST'])
-def authorize():
-    federate = request.args.get('federate') or session.get('federate')
+def remember_own_flow_args():
     own_flow_args = {}
     for arg in ('scope','client_id','state','nonce','response_type','redirect_uri'):
         if request.args.get(arg):
             own_flow_args[arg] = request.args[arg] # or encode it in state?
-    if federate == 'twitter':
-        session['twitter_state'] = own_flow_args
-        return federate_login(federate)
-    elif federate == 'github':
-        return federate_login(federate, **own_flow_args)
-    else:
-        return render_template('federate.html',qp=request.args)
+    session['own_flow_args'] = own_flow_args
 
-@bp.route('/federate/<name>')
-def federate_login(name, **extra_args):
-    fed_client = oauth2_clients.create_client(name)
-    redirect_uri = url_for('.callback', name=name, _external=True, **extra_args)
+def recall_own_flow_args():
+    return session.pop['own_flow_args']
+
+@bp.route('/authorize')
+def authorize():
+    federate = request.args.get('federate')
+    if federate: # check in registry!
+        return federate_login(federate)
+    else:
+        render_template('federate.html', qp=request.args)
+
+def federate_login(name):
+    fed_client = federation.get(name)
+    if not fed_client:
+        return EenErrorResponse
+    remember_own_flow_args()
+    redirect_uri = url_for('.callback', name=name, _external=True)
     return fed_client.authorize_redirect(redirect_uri)
 
 @bp.route('/federate/<name>/callback')
 def callback(name):
-    client = oauth2_clients.create_client(name)
-    token = client.authorize_access_token()
-    if name=='twitter':
-        username = 'twitter/' + token['screen_name']
-        own_flow_args = session.pop('twitter_state')
-        request.url = request.url + ''.join('&{}={}'.format(k,v) for k,v in own_flow_args.items())
-    elif name=='github':
-        github_user = oauth2_clients.github.get('user').json()
-        username = 'github/' + github_user['login']
-    grant_user = User(username)
+    own_flow_args = recall_own_flow_args()
+    if request.args.get('error'):
+        return auth_server.create_authorization_response() # access_denied error response
 
-    # request.args = request.args.copy()
-    # for arg in ('scope','client_id','state','nonce','response_type','redirect_uri'):
-    #     if request.args.get('own_'+arg):
-    #         request.args[arg] = request.args['own_'+arg] # or encode it in state?
+    fed_client = federation.get(name)
+    user_info = fed_client.fetch_user_info()
+    user = User(user_info.sub, user_info)
 
-    return auth_server.create_authorization_response(grant_user=grant_user) # use request param starting authlib 0.8
+    # hack the current request
+    # starting authlib 0.8 we can use auth_server.create_authorization_response(request,user)
+    request.url = request.url + ''.join('&{}={}'.format(k, v) for k, v in own_flow_args.items())
+    return auth_server.create_authorization_response(grant_user=user)
 
 @bp.route('/token', methods=['POST'])
 def issue_token():
@@ -56,7 +53,7 @@ def issue_token():
 
 @bp.route('/profile/github')
 def profile_github():
-    resp = oauth2_clients.github.get('user')
+    resp = federation.get('github').get('user')
     profile = resp.json()
     return 'got user {}'.format(profile)
 

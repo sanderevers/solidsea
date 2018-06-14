@@ -1,7 +1,7 @@
 import os
 from flask import Flask
 from .oauth2_server import config_oauth
-from .oauth2_client import init_oauth2_clients
+from .federation import federation
 from .routes import bp
 from .encryption import encryption
 from .myclients import init_my_clients
@@ -30,7 +30,7 @@ def create_app(config=None):
 
 def setup_app(app):
     config_oauth(app)
-    init_oauth2_clients(app)
+    federation.init_app(app)
     encryption.init_app(app)
     init_my_clients(app)
     app.register_blueprint(bp, url_prefix='')
