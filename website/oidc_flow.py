@@ -1,6 +1,7 @@
 from authlib.specs.oidc import grants as oidc_grants
 from authlib.specs.rfc7519 import JWT
 from authlib.specs.oidc.models import AuthorizationCodeMixin
+from authlib.specs.oidc.grants.base import UserInfo
 from authlib.specs.rfc6749.wrappers import OAuth2Request
 
 from flask import request as flask_req
@@ -58,7 +59,8 @@ class IdTokenAuthorizationCode(AuthorizationCodeMixin):
         return self.id_token.get('redirect_uri')
 
     def get_user(self):
-        return User(self.id_token.get('sub'))
+        sub = self.id_token.get('sub')
+        return User(sub, UserInfo(sub=sub))
 
     def get_scope(self):
         return 'openid'

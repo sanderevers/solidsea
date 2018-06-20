@@ -1,7 +1,12 @@
 from authlib.flask.client import OAuth, RemoteApp
 from authlib.specs.oidc.grants.base import UserInfo
+from authlib.specs.rfc7519 import JWT
+from authlib.specs.rfc7517 import JWK
+from authlib.specs.rfc7518 import JWK_ALGORITHMS
 
-from flask import session
+import json
+
+from flask import session, current_app
 
 
 class Federation:
@@ -20,16 +25,15 @@ class Federation:
 
     def init_app(self, app):
         self._authlib_clients.init_app(app)
-        self._authlib_clients.register('github', client_cls=GithubClient)
-        self._authlib_clients.register('twitter', client_cls=TwitterClient)
+        self.register('github', client_cls=GithubClient)
+        self.register('twitter', client_cls=TwitterClient)
+        self.register('google', client_cls=GoogleClient)
 
 
 class GithubClient(RemoteApp):
     def __init__(self, name, **kwargs):
-        super().__init__(name, fetch_token = self.fetch_token, client_kwargs={'scope':''}, **kwargs)
-
-    def fetch_token(self):
-        raise NotImplementedError()
+        kwargs['client_kwargs'] = {'scope':''}
+        super().__init__(name, **kwargs)
 
     def fetch_user_info(self):
         github_user = self.get('user').json()
@@ -50,5 +54,31 @@ class TwitterClient(RemoteApp):
     def fetch_user_info(self):
         sub = 'twitter/' + self.token['screen_name']
         return UserInfo(sub=sub)
+
+class GoogleClient(RemoteApp):
+    def __init__(self, name, **kwargs):
+        kwargs['client_kwargs'] = {'scope':'openid email'}
+        super().__init__(name, **kwargs)
+
+    def fetch_user_info(self):
+        jwt_issuer = 'https://accounts.google.com'
+        options = {
+            'iss' : {'essential':True, 'value':jwt_issuer},
+            'aud' : {'essential':True, 'value':self.client_id},
+            'exp' : {'essential':True}
+        }
+        id_token = JWT().decode(self.token['id_token'], load_key, claims_options=options)
+        id_token.validate()
+        sub = 'google/' + id_token.sub
+        return UserInfo(sub=sub)
+
+
+def load_key(header, payload):
+    kid = header['kid']
+    with current_app.open_instance_resource('google_certs', 'r') as f:
+        google_certs = f.read()
+    jwk = JWK(algorithms=JWK_ALGORITHMS)
+    key = jwk.loads(json.loads(google_certs),kid)
+    return key
 
 federation = Federation()

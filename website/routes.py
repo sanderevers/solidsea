@@ -1,8 +1,10 @@
 from flask import Blueprint, request, session
 from flask import render_template, redirect, jsonify, json, url_for
+from authlib.client.errors import OAuthException
 from .oauth2_server import auth_server
 from .federation import federation
 from .user import User
+
 
 bp = Blueprint(__name__, 'home')
 
@@ -14,22 +16,22 @@ def remember_own_flow_args():
     session['own_flow_args'] = own_flow_args
 
 def recall_own_flow_args():
-    return session.pop['own_flow_args']
+    return session.pop('own_flow_args')
 
 @bp.route('/authorize')
 def authorize():
     federate = request.args.get('federate')
-    if federate: # check in registry!
+    if federate:
         return federate_login(federate)
     else:
-        render_template('federate.html', qp=request.args)
+        return render_template('federate.html', qp=request.args)
 
-def federate_login(name):
-    fed_client = federation.get(name)
+def federate_login(client_name):
+    fed_client = federation.get(client_name)
     if not fed_client:
-        return EenErrorResponse
+        return auth_server.create_authorization_response() # access_denied error response
     remember_own_flow_args()
-    redirect_uri = url_for('.callback', name=name, _external=True)
+    redirect_uri = url_for('.callback', name=client_name, _external=True)
     return fed_client.authorize_redirect(redirect_uri)
 
 @bp.route('/federate/<name>/callback')
@@ -39,6 +41,11 @@ def callback(name):
         return auth_server.create_authorization_response() # access_denied error response
 
     fed_client = federation.get(name)
+    try:
+        fed_client.authorize_access_token()
+    except OAuthException:
+        return auth_server.create_authorization_response()
+
     user_info = fed_client.fetch_user_info()
     user = User(user_info.sub, user_info)
 
