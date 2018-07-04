@@ -7,9 +7,12 @@ class Encryption():
         with app.open_instance_resource(app.config['IDP_JWT_PUB_KEY_PATH'], 'rb') as f:
             self.pubkey_data = f.read()
         self.pubkey = jwk.JWK.from_pem(self.pubkey_data)
+        self.pubkey_json = self.pubkey.export_public()
+
         with app.open_instance_resource(app.config['IDP_JWT_PRIV_KEY_PATH'], 'rb') as f:
             privkey_data = f.read()
         self.privkey = jwk.JWK.from_pem(privkey_data)
+        self.privkey_json = self.privkey.export_private()
 
     def encrypt_and_serialize(self, id_token):
         eprot = {'alg': 'RSA-OAEP', 'enc': 'A256GCM'}

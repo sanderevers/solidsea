@@ -4,9 +4,8 @@ from authlib.specs.rfc7519 import JWT
 from authlib.specs.rfc7517 import JWK
 from authlib.specs.rfc7518 import JWK_ALGORITHMS
 
-import json
-
-from flask import session, current_app
+import requests
+from flask import session
 
 
 class Federation:
@@ -27,8 +26,7 @@ class Federation:
         self._authlib_clients.init_app(app)
         self.register('github', client_cls=GithubClient)
         self.register('twitter', client_cls=TwitterClient)
-        self.register('google', client_cls=GoogleClient)
-
+        self.register('google', client_cls=GoogleClient, discovery_url=app.config['GOOGLE_DISCOVERY_URL'])
 
 class GithubClient(RemoteApp):
     def __init__(self, name, **kwargs):
@@ -39,7 +37,6 @@ class GithubClient(RemoteApp):
         github_user = self.get('user').json()
         sub = 'github/' + github_user['login']
         return UserInfo(sub=sub)
-
 
 class TwitterClient(RemoteApp):
     def __init__(self, name, **kwargs):
@@ -56,8 +53,13 @@ class TwitterClient(RemoteApp):
         return UserInfo(sub=sub)
 
 class GoogleClient(RemoteApp):
-    def __init__(self, name, **kwargs):
+    def __init__(self, name, discovery_url, **kwargs):
+        discovery = self.fetch_discovery(discovery_url)
+        self.jwks_uri = discovery['jwks_uri']
+        self.jwks = {'keys':[]}
         kwargs['client_kwargs'] = {'scope':'openid email'}
+        kwargs['authorize_url'] = discovery['authorization_endpoint']
+        kwargs['access_token_url'] = discovery['token_endpoint']
         super().__init__(name, **kwargs)
 
     def fetch_user_info(self):
@@ -67,18 +69,23 @@ class GoogleClient(RemoteApp):
             'aud' : {'essential':True, 'value':self.client_id},
             'exp' : {'essential':True}
         }
-        id_token = JWT().decode(self.token['id_token'], load_key, claims_options=options)
-        id_token.validate()
+        id_token = JWT().decode(self.token['id_token'], self.load_key, claims_options=options)
+        id_token.validate() # checking signature is not strictly necessary but let's do it anyway
         sub = 'google/' + id_token.sub
         return UserInfo(sub=sub)
 
+    def fetch_discovery(self, url):
+        resp = requests.get(url)
+        if not resp.status_code == 200:
+            raise Exception('Google discovery URL {} returning {}.'.format(url, resp.status_code))
+        return resp.json()
 
-def load_key(header, payload):
-    kid = header['kid']
-    with current_app.open_instance_resource('google_certs', 'r') as f:
-        google_certs = f.read()
-    jwk = JWK(algorithms=JWK_ALGORITHMS)
-    key = jwk.loads(json.loads(google_certs),kid)
-    return key
+    def load_key(self, header, payload):
+        kid = header['kid']
+        if not any(key['kid']==kid for key in self.jwks['keys']):
+            self.jwks = requests.get(self.jwks_uri).json()
+        jwk = JWK(algorithms=JWK_ALGORITHMS)
+        key = jwk.loads(self.jwks,kid)
+        return key
 
 federation = Federation()

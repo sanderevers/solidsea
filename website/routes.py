@@ -1,9 +1,11 @@
 from flask import Blueprint, request, session
-from flask import render_template, redirect, jsonify, json, url_for
+from flask import render_template, redirect, jsonify, url_for, make_response
 from authlib.client.errors import OAuthException
-from .oauth2_server import auth_server
+from .oidc_server import auth_server
 from .federation import federation
 from .user import User
+from .encryption import encryption
+from copy import copy
 
 
 bp = Blueprint(__name__, 'home')
@@ -17,6 +19,20 @@ def remember_own_flow_args():
 
 def recall_own_flow_args():
     return session.pop('own_flow_args')
+
+@bp.route('/.well_known/openid-configuration')
+def discovery_document():
+    doc = {
+        'issuer': auth_server.config['jwt_iss'],
+        'authorization_endpoint': url_for('.authorize', _external=True),
+        'token_endpoint': url_for('.token', _external=True),
+        'jwks_uri': url_for('.jwks', _external=True),
+    }
+    return jsonify(doc)
+
+@bp.route('/jwks.json')
+def jwks():
+    return make_response(encryption.pubkey_json, {'Content-Type':'application/json'})
 
 @bp.route('/authorize')
 def authorize():
@@ -49,20 +65,19 @@ def callback(name):
     user_info = fed_client.fetch_user_info()
     user = User(user_info.sub, user_info)
 
-    # hack the current request
-    # starting authlib 0.8 we can use auth_server.create_authorization_response(request,user)
-    request.url = request.url + ''.join('&{}={}'.format(k, v) for k, v in own_flow_args.items())
-    return auth_server.create_authorization_response(grant_user=user)
+    augmented_req = copy(request)
+    augmented_req.url = augmented_req.url + ''.join('&{}={}'.format(k, v) for k, v in own_flow_args.items())
+    return auth_server.create_authorization_response(augmented_req, grant_user=user)
 
 @bp.route('/token', methods=['POST'])
-def issue_token():
+def token():
     return auth_server.create_token_response()
 
-@bp.route('/profile/github')
-def profile_github():
-    resp = federation.get('github').get('user')
-    profile = resp.json()
-    return 'got user {}'.format(profile)
+# @bp.route('/profile/github')
+# def profile_github():
+#     resp = federation.get('github').get('user')
+#     profile = resp.json()
+#     return 'got user {}'.format(profile)
 
 
 # @bp.route('/api/me')

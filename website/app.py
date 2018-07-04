@@ -1,6 +1,6 @@
 import os
 from flask import Flask
-from .oauth2_server import config_oauth
+from .oidc_server import oidc_server_init_app
 from .federation import federation
 from .routes import bp
 from .encryption import encryption
@@ -29,8 +29,8 @@ def create_app(config=None):
 
 
 def setup_app(app):
-    config_oauth(app)
     federation.init_app(app)
     encryption.init_app(app)
+    oidc_server_init_app(app)
     init_my_clients(app)
     app.register_blueprint(bp, url_prefix='')
