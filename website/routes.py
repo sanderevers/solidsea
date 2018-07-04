@@ -1,4 +1,4 @@
-from flask import Blueprint, request, session
+from flask import Blueprint, request, session, g
 from flask import render_template, redirect, jsonify, url_for, make_response
 from authlib.client.errors import OAuthException
 from .oidc_server import auth_server
@@ -6,6 +6,7 @@ from .federation import federation
 from .user import User
 from .encryption import encryption
 from copy import copy
+from urllib.parse import quote_plus
 
 
 bp = Blueprint(__name__, 'home')
@@ -66,7 +67,8 @@ def callback(name):
     user = User(user_info.sub, user_info)
 
     augmented_req = copy(request)
-    augmented_req.url = augmented_req.url + ''.join('&{}={}'.format(k, v) for k, v in own_flow_args.items())
+    augmented_req.url = augmented_req.url + ''.join('&{}={}'.format(quote_plus(k),quote_plus(v)) for k,v in own_flow_args.items())
+    g.redirect_uri = own_flow_args.get('redirect_uri')
     return auth_server.create_authorization_response(augmented_req, grant_user=user)
 
 @bp.route('/token', methods=['POST'])

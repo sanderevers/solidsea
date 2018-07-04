@@ -55,6 +55,7 @@ class TwitterClient(RemoteApp):
 class GoogleClient(RemoteApp):
     def __init__(self, name, discovery_url, **kwargs):
         discovery = self.fetch_discovery(discovery_url)
+        self.issuer = discovery['issuer']
         self.jwks_uri = discovery['jwks_uri']
         self.jwks = {'keys':[]}
         kwargs['client_kwargs'] = {'scope':'openid email'}
@@ -63,9 +64,8 @@ class GoogleClient(RemoteApp):
         super().__init__(name, **kwargs)
 
     def fetch_user_info(self):
-        jwt_issuer = 'https://accounts.google.com'
         options = {
-            'iss' : {'essential':True, 'value':jwt_issuer},
+            'iss' : {'essential':True, 'value':self.issuer},
             'aud' : {'essential':True, 'value':self.client_id},
             'exp' : {'essential':True}
         }

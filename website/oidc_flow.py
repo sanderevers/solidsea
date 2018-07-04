@@ -2,9 +2,8 @@ from authlib.specs.oidc import grants as oidc_grants
 from authlib.specs.rfc7519 import JWT
 from authlib.specs.oidc.models import AuthorizationCodeMixin
 from authlib.specs.oidc.grants.base import UserInfo
-from authlib.specs.rfc6749.wrappers import OAuth2Request
 
-from flask import request as flask_req
+from flask import g
 from .encryption import encryption
 from .user import User
 
@@ -25,7 +24,10 @@ class OpenIDCodeGrant(oidc_grants.OpenIDCodeGrant):
     # hack to get redirect_uri into the authorization code
     def generate_user_info(self, user, scopes):
         user_info = super().generate_user_info(user,scopes)
-        user_info['redirect_uri'] = _create_oauth2_request(flask_req).redirect_uri
+        try:
+            user_info['redirect_uri'] = g.redirect_uri
+        except AttributeError:
+            pass
         return user_info
 
     def parse_authorization_code(self, code, client):
@@ -71,15 +73,3 @@ class IdTokenAuthorizationCode(AuthorizationCodeMixin):
     def get_auth_time(self):
         return self.id_token.get('auth_time')
 
-def _create_oauth2_request(q):
-    if q.method == 'POST':
-        body = q.form.to_dict(flat=True)
-    else:
-        body = None
-
-    return OAuth2Request(
-        q.method,
-        q.url,
-        body,
-        q.headers
-    )
