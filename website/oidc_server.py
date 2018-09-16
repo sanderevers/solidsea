@@ -4,6 +4,7 @@ from authlib.specs.oidc.grants import OpenIDImplicitGrant
 from .oidc_flow import OpenIDCodeGrant
 from .myclients import find_client
 from .encryption import encryption
+import json
 
 def save_token(token, client):
     pass
@@ -14,8 +15,7 @@ def exists_nonce(nonce,request):
 
 def oidc_server_init_app(app):
 
-    app.config['OAUTH2_JWT_KEY'] = encryption.privkey_json
-
+    app.config['OAUTH2_JWT_KEY'] = json.loads(encryption.privkey_json)
     auth_server.init_app(app)
 
     # support all grants

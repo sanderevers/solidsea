@@ -21,7 +21,7 @@ def remember_own_flow_args():
 def recall_own_flow_args():
     return session.pop('own_flow_args')
 
-@bp.route('/.well_known/openid-configuration')
+@bp.route('/.well-known/openid-configuration')
 def discovery_document():
     doc = {
         'issuer': auth_server.config['jwt_iss'],
@@ -37,6 +37,7 @@ def jwks():
 
 @bp.route('/authorize')
 def authorize():
+    #validate_consent_request ?
     federate = request.args.get('federate')
     if federate:
         return federate_login(federate)

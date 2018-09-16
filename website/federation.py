@@ -5,6 +5,7 @@ from authlib.specs.rfc7517 import JWK
 from authlib.specs.rfc7518 import JWK_ALGORITHMS
 
 import requests
+import logging
 from flask import session
 
 
@@ -54,13 +55,16 @@ class TwitterClient(RemoteApp):
 
 class GoogleClient(RemoteApp):
     def __init__(self, name, discovery_url, **kwargs):
-        discovery = self.fetch_discovery(discovery_url)
-        self.issuer = discovery['issuer']
-        self.jwks_uri = discovery['jwks_uri']
-        self.jwks = {'keys':[]}
-        kwargs['client_kwargs'] = {'scope':'openid email'}
-        kwargs['authorize_url'] = discovery['authorization_endpoint']
-        kwargs['access_token_url'] = discovery['token_endpoint']
+        try:
+            discovery = self.fetch_discovery(discovery_url)
+            self.issuer = discovery['issuer']
+            self.jwks_uri = discovery['jwks_uri']
+            self.jwks = {'keys':[]}
+            kwargs['client_kwargs'] = {'scope':'openid email'}
+            kwargs['authorize_url'] = discovery['authorization_endpoint']
+            kwargs['access_token_url'] = discovery['token_endpoint']
+        except:
+            log.error('Google client not configured')
         super().__init__(name, **kwargs)
 
     def fetch_user_info(self):
@@ -88,4 +92,5 @@ class GoogleClient(RemoteApp):
         key = jwk.loads(self.jwks,kid)
         return key
 
+log = logging.getLogger(__name__)
 federation = Federation()
