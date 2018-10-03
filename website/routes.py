@@ -7,7 +7,7 @@ from .user import User
 from .encryption import encryption
 from copy import copy
 from urllib.parse import quote_plus
-
+import json
 
 bp = Blueprint(__name__, 'home')
 
@@ -33,7 +33,8 @@ def discovery_document():
 
 @bp.route('/jwks.json')
 def jwks():
-    return make_response(encryption.pubkey_json, {'Content-Type':'application/json'})
+    jwks = {'keys':[json.loads(encryption.pubkey_json)]}
+    return make_response(json.dumps(jwks), {'Content-Type':'application/json'})
 
 @bp.route('/authorize')
 def authorize():
