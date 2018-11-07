@@ -69,7 +69,7 @@ def callback(name):
     user = User(user_info.sub, user_info)
 
     augmented_req = copy(request)
-    augmented_req.url = augmented_req.url + ''.join('&{}={}'.format(quote_plus(k),quote_plus(v)) for k,v in own_flow_args.items())
+    augmented_req.url = url_for('.callback',name=name,_external=True) + '?' + ''.join('&{}={}'.format(quote_plus(k),quote_plus(v)) for k,v in own_flow_args.items())
     g.redirect_uri = own_flow_args.get('redirect_uri')
     return auth_server.create_authorization_response(augmented_req, grant_user=user)
 
