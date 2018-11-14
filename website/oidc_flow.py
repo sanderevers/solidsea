@@ -1,49 +1,45 @@
 from authlib.specs.oidc import grants as oidc_grants
 from authlib.specs.rfc7519 import JWT
+from authlib.specs.rfc6749.util import scope_to_list
 from authlib.specs.oidc.models import AuthorizationCodeMixin
-from authlib.specs.oidc.grants.base import UserInfo
+from authlib.specs.oidc.claims import UserInfo
 
-from flask import g
 from .encryption import encryption
 from .user import User
+
+import json
+import time
 
 class OpenIDCodeGrant(oidc_grants.OpenIDCodeGrant):
     def create_authorization_code(self, client, grant_user, request):
 
-        # openid request MAY have "nonce" parameter
-        nonce = request.data.get('nonce')
-
         # instead of creating a shared-secret auth code bound to the client in the DB,
-        # we already create the id token but send it to the client encrypted.
+        # we already create the id token info but send it to the client encrypted.
 
-        token = {'scope': request.scope}
-        id_token = self.generate_id_token(token, request, nonce=nonce)
+        token_info = {
+            'sub' : grant_user.generate_user_info(scope_to_list(request.scope))['sub'],
+            'scope': request.scope,
+            'auth_time': int(time.time()),
+            'redirect_uri': client.redirect_uri,
+            'client_id' : client.client_id,
+            'nonce': request.data.get('nonce'),
+        }
 
-        return encryption.encrypt_and_serialize(id_token)
-
-    # hack to get redirect_uri into the authorization code
-    def generate_user_info(self, user, scopes):
-        user_info = super().generate_user_info(user,scopes)
-        try:
-            user_info['redirect_uri'] = g.redirect_uri
-        except AttributeError:
-            pass
-        return user_info
+        return encryption.encrypt_and_serialize(json.dumps(token_info))
 
     def parse_authorization_code(self, code, client):
         jwt_string = encryption.deserialize_and_decrypt(code)
 
-        issuer = self.server.config['jwt_iss']
+        # issuer = self.server.config['jwt_iss']
+        # options = {
+        #     'iss' : {'essential':True, 'value':issuer},
+        #     'aud' : {'essential':True, 'value':client.client_id},
+        #     'exp' : {'essential':True}
+        # }
+        # id_token = JWT().decode(jwt_string, encryption.pubkey_data, claims_options=options)
+        # id_token.validate()
 
-        options = {
-            'iss' : {'essential':True, 'value':issuer},
-            'aud' : {'essential':True, 'value':client.client_id},
-            'exp' : {'essential':True}
-        }
-        id_token = JWT().decode(jwt_string, encryption.pubkey_data, claims_options=options)
-        id_token.validate()
-
-        return IdTokenAuthorizationCode(id_token)
+        return IdTokenAuthorizationCode(json.loads(jwt_string))
 
 
     def delete_authorization_code(self, authorization_code):

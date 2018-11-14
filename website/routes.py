@@ -1,6 +1,7 @@
 from flask import Blueprint, request, session, g
-from flask import render_template, redirect, jsonify, url_for, make_response
-from authlib.client.errors import OAuthException
+from flask import render_template, redirect, jsonify, url_for, make_response, Request
+from authlib.client.errors import OAuthError
+from authlib.common.security import generate_token
 from .oidc_server import auth_server
 from .federation import federation
 from .user import User
@@ -11,15 +12,22 @@ import json
 
 bp = Blueprint('home', __name__)
 
-def remember_own_flow_args():
-    own_flow_args = {}
-    for arg in ('scope','client_id','state','nonce','response_type','redirect_uri'):
-        if request.args.get(arg):
-            own_flow_args[arg] = request.args[arg] # or encode it in state?
-    session['own_flow_args'] = own_flow_args
+def remember_own_flow():
+    own_flow = request.endpoint, request.view_args, request.args
+    session['own_flow'] = own_flow
 
-def recall_own_flow_args():
-    return session.pop('own_flow_args')
+def recall_own_flow():
+    return session.pop('own_flow', None)
+
+# def remember_own_flow_args():
+#     own_flow_args = {}
+#     for arg in ('scope','client_id','state','nonce','response_type','redirect_uri'):
+#         if request.args.get(arg):
+#             own_flow_args[arg] = request.args[arg] # or encode it in state?
+#     session['own_flow_args'] = own_flow_args
+#
+# def recall_own_flow_args():
+#     return session.pop('own_flow_args')
 
 @bp.route('/.well-known/openid-configuration')
 def discovery_document():
@@ -49,29 +57,30 @@ def federate_login(client_name):
     fed_client = federation.get(client_name)
     if not fed_client:
         return auth_server.create_authorization_response() # access_denied error response
-    remember_own_flow_args()
+    remember_own_flow()
     redirect_uri = url_for('.callback', name=client_name, _external=True)
     return fed_client.authorize_redirect(redirect_uri)
 
 @bp.route('/federate/<name>/callback')
 def callback(name):
-    own_flow_args = recall_own_flow_args()
+    endpoint, view_args, req_args = recall_own_flow()
     if request.args.get('error'):
         return auth_server.create_authorization_response() # access_denied error response
 
     fed_client = federation.get(name)
     try:
         fed_client.authorize_access_token()
-    except OAuthException:
+    except OAuthError:
         return auth_server.create_authorization_response()
 
     user_info = fed_client.fetch_user_info()
     user = User(user_info.sub, user_info)
 
-    augmented_req = copy(request)
-    augmented_req.url = url_for('.callback',name=name,_external=True) + '?' + ''.join('&{}={}'.format(quote_plus(k),quote_plus(v)) for k,v in own_flow_args.items())
-    g.redirect_uri = own_flow_args.get('redirect_uri')
-    return auth_server.create_authorization_response(augmented_req, grant_user=user)
+    auth_url = url_for(endpoint,**view_args,**req_args,_external=True)
+    base_url, query_string = auth_url.split('?',1)
+    auth_req =  Request.from_values(base_url=base_url, query_string=query_string.encode())
+    g.redirect_uri = req_args.get('redirect_uri')
+    return auth_server.create_authorization_response(auth_req, grant_user=user)
 
 @bp.route('/token', methods=['POST'])
 def token():
