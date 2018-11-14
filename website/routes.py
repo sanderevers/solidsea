@@ -9,7 +9,7 @@ from copy import copy
 from urllib.parse import quote_plus
 import json
 
-bp = Blueprint(__name__, 'home')
+bp = Blueprint('home', __name__)
 
 def remember_own_flow_args():
     own_flow_args = {}
