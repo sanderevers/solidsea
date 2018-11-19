@@ -1,5 +1,5 @@
 from authlib.flask.client import OAuth, RemoteApp
-from authlib.specs.oidc.claims import UserInfo
+from authlib.specs.oidc import UserInfo
 from authlib.specs.rfc7519 import JWT
 from authlib.specs.rfc7517 import JWK
 from authlib.specs.rfc7518 import JWK_ALGORITHMS
