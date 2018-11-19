@@ -2,7 +2,7 @@ from authlib.specs.oidc import grants as oidc_grants
 from authlib.specs.rfc7519 import JWT
 from authlib.specs.rfc6749.util import scope_to_list
 from authlib.specs.oidc.models import AuthorizationCodeMixin
-from authlib.specs.oidc.claims import UserInfo
+from authlib.specs.oidc import UserInfo
 
 from .encryption import encryption
 from .user import User
