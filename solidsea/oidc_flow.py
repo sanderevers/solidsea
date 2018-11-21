@@ -41,6 +41,9 @@ class OpenIDCodeGrant(oidc_grants.OpenIDCodeGrant):
 
         return IdTokenAuthorizationCode(json.loads(jwt_string))
 
+    # we don't support nonce checking
+    def exists_nonce(self, nonce, request):
+        return False
 
     def delete_authorization_code(self, authorization_code):
         pass

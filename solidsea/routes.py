@@ -1,13 +1,10 @@
-from flask import Blueprint, request, session, g
-from flask import render_template, redirect, jsonify, url_for, make_response, Request
+from flask import Blueprint, request, session, current_app
+from flask import render_template, render_template_string, jsonify, url_for, make_response, Request
 from authlib.client.errors import OAuthError
-from authlib.common.security import generate_token
 from .oidc_server import auth_server
 from .federation import federation
 from .user import User
 from .encryption import encryption
-from copy import copy
-from urllib.parse import quote_plus
 import json
 
 bp = Blueprint('home', __name__)
@@ -18,16 +15,6 @@ def remember_own_flow():
 
 def recall_own_flow():
     return session.pop('own_flow', None)
-
-# def remember_own_flow_args():
-#     own_flow_args = {}
-#     for arg in ('scope','client_id','state','nonce','response_type','redirect_uri'):
-#         if request.args.get(arg):
-#             own_flow_args[arg] = request.args[arg] # or encode it in state?
-#     session['own_flow_args'] = own_flow_args
-#
-# def recall_own_flow_args():
-#     return session.pop('own_flow_args')
 
 @bp.route('/.well-known/openid-configuration')
 def discovery_document():
@@ -46,12 +33,16 @@ def jwks():
 
 @bp.route('/authorize')
 def authorize():
-    #validate_consent_request ?
+    auth_server.validate_consent_request()
     federate = request.args.get('federate')
     if federate:
         return federate_login(federate)
     else:
-        return render_template('federate.html', qp=request.args)
+        try:
+            with current_app.open_instance_resource('federate.html','r') as f:
+                return render_template_string(f.read(), qp=request.args)
+        except IOError:
+            return render_template('federate.html', qp=request.args)
 
 def federate_login(client_name):
     fed_client = federation.get(client_name)
@@ -79,22 +70,9 @@ def callback(name):
     auth_url = url_for(endpoint,**view_args,**req_args,_external=True)
     base_url, query_string = auth_url.split('?',1)
     auth_req =  Request.from_values(base_url=base_url, query_string=query_string.encode())
-    g.redirect_uri = req_args.get('redirect_uri')
+#    g.redirect_uri = req_args.get('redirect_uri')
     return auth_server.create_authorization_response(auth_req, grant_user=user)
 
 @bp.route('/token', methods=['POST'])
 def token():
     return auth_server.create_token_response()
-
-# @bp.route('/profile/github')
-# def profile_github():
-#     resp = federation.get('github').get('user')
-#     profile = resp.json()
-#     return 'got user {}'.format(profile)
-
-
-# @bp.route('/api/me')
-# @require_oauth('profile')
-# def api_me():
-#     user = current_token.user
-#     return jsonify(id=user.id, username=user.username)

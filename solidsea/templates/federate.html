@@ -1,6 +1,14 @@
-Sign in with
-<a href="{{ url_for('.authorize',federate='github',**qp) }}">Github</a> |
-<a href="{{ url_for('.authorize',federate='twitter',**qp) }}">Twitter</a> |
-<a href="{{ url_for('.authorize',federate='google',**qp) }}">Google</a>
+{% macro link(client_name) -%}
+<a href="{{ url_for('.authorize',federate=client_name,**qp) }}">{{ client_name }}</a>
+{%- endmacro %}
+
+Continue with
+{% set pipe = joiner(" | ") %}
+{% for client_name in config['FEDERATION'] %}
+{{ pipe() }}
+{{ link(client_name) }}
+{% endfor %}
+
+
 
 
