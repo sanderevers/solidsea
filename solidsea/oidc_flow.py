@@ -1,5 +1,4 @@
 from authlib.specs.oidc import grants as oidc_grants
-from authlib.specs.rfc7519 import JWT
 from authlib.specs.rfc6749.util import scope_to_list
 from authlib.specs.oidc.models import AuthorizationCodeMixin
 from authlib.specs.oidc import UserInfo
@@ -29,16 +28,6 @@ class OpenIDCodeGrant(oidc_grants.OpenIDCodeGrant):
 
     def parse_authorization_code(self, code, client):
         jwt_string = encryption.deserialize_and_decrypt(code)
-
-        # issuer = self.server.config['jwt_iss']
-        # options = {
-        #     'iss' : {'essential':True, 'value':issuer},
-        #     'aud' : {'essential':True, 'value':client.client_id},
-        #     'exp' : {'essential':True}
-        # }
-        # id_token = JWT().decode(jwt_string, encryption.pubkey_data, claims_options=options)
-        # id_token.validate()
-
         return IdTokenAuthorizationCode(json.loads(jwt_string))
 
     # we don't support nonce checking

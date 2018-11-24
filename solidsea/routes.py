@@ -26,10 +26,12 @@ def discovery_document():
     }
     return jsonify(doc)
 
+
 @bp.route('/jwks.json')
 def jwks():
-    jwks = {'keys':[json.loads(encryption.pubkey_json)]}
+    jwks = {'keys':[encryption.pubkey_jwk_dict]}
     return make_response(json.dumps(jwks), {'Content-Type':'application/json'})
+
 
 @bp.route('/authorize')
 def authorize():
