@@ -1,7 +1,7 @@
 from authlib.flask.oauth2 import AuthorizationServer
 from authlib.specs.oidc.grants import OpenIDImplicitGrant
 
-from .oidc_flow import OpenIDCodeGrant
+from .auth_code_flow import OpenIDCodeGrant
 from .myclients import find_client
 from .encryption import encryption
 

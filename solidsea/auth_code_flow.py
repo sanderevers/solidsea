@@ -27,8 +27,9 @@ class OpenIDCodeGrant(oidc_grants.OpenIDCodeGrant):
         return encryption.encrypt_and_serialize(json.dumps(token_info))
 
     def parse_authorization_code(self, code, client):
-        jwt_string = encryption.deserialize_and_decrypt(code)
-        return IdTokenAuthorizationCode(json.loads(jwt_string))
+        info = json.loads(encryption.deserialize_and_decrypt(code))
+        assert info['client_id']==client.client_id
+        return IdTokenAuthorizationCode(info)
 
     # we don't support nonce checking
     def exists_nonce(self, nonce, request):
