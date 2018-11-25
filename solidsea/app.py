@@ -12,7 +12,7 @@ def create_app():
     app = Flask('solidsea', instance_path=instance_path, instance_relative_config=True)
 
     # default config
-    app.config.from_object('solidsea.default_config')
+    app.config.from_object('solidsea.config')
 
     # instance config
     app.config.from_pyfile('config.py')
