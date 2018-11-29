@@ -2,3 +2,5 @@
 *.pyc
 .idea
 instance
+dist
+solidsea.egg-info
