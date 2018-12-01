@@ -6,13 +6,11 @@ https://github.com/pypa/sampleproject
 
 # Always prefer setuptools over distutils
 from setuptools import setup, find_packages
-# To use a consistent encoding
-from codecs import open
-from os import path
+from solidsea import __version__
 
 setup(
     name='solidsea',
-    version='0.1.0',
+    version=__version__,
     description='A stateless OIDC federation server.',
     author='Sander Evers',
     packages=find_packages(),

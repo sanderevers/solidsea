@@ -3,4 +3,5 @@
 .idea
 instance
 dist
+build
 solidsea.egg-info
