@@ -13,6 +13,9 @@ class StaticClient(ClientMixin):
         else:
             raise Exception('grant_type should be authorization_code or implicit')
 
+    def get_default_redirect_uri(self):
+        return None
+
     def check_redirect_uri(self, redirect_uri):
         return self.redirect_uri == redirect_uri
 

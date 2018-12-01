@@ -1,6 +1,7 @@
 from flask import Blueprint, request, session, current_app
 from flask import render_template, render_template_string, jsonify, url_for, make_response, Request
 from authlib.client.errors import OAuthError
+from authlib.specs.rfc6749.errors import OAuth2Error
 from .oidc_server import auth_server
 from .federation import federation
 from .user import User
@@ -35,7 +36,11 @@ def jwks():
 
 @bp.route('/authorize')
 def authorize():
-    auth_server.validate_consent_request()
+    try:
+        auth_server.validate_consent_request()
+    except OAuth2Error:
+        return auth_server.create_authorization_response()
+
     federate = request.args.get('federate')
     if federate:
         return federate_login(federate)
